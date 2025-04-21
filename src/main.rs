@@ -1,29 +1,27 @@
-mod notification;
-mod ui;
+use gtk4::{Application, Window, glib, prelude::*};
+use tracing::{Level, error};
 
-use std::sync::Arc;
-
-use gtk4::{
-    self as gtk, Application, ApplicationWindow, Window, glib, prelude::*,
-};
-use gtk4_layer_shell::{Edge, Layer, LayerShell};
-use tracing::error;
+use stela::{notification, ui};
 
 const APP_ID: &str = "dev.rotmh.stela";
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    let (tx, rx) = async_channel::bounded(1);
+    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
 
-    let handle = tokio::spawn(async move { notification::listen(tx).await });
+    let (tx, _rx) = tokio::sync::broadcast::channel(10);
 
     let app = Application::builder().application_id(APP_ID).build();
+
+    let tx_listener = tx.clone();
+    let handle =
+        tokio::spawn(async move { notification::listen(tx_listener).await });
 
     app.connect_activate(activate);
 
     app.connect_startup(move |app| {
-        let rx = rx.clone();
         let app = app.clone();
+        let mut rx = tx.subscribe();
 
         glib::spawn_future_local(async move {
             let mut popup_manager = ui::popup::Manager::new(app);
@@ -48,7 +46,9 @@ async fn main() -> std::process::ExitCode {
 }
 
 fn activate(app: &Application) {
-    ui::style::load();
+    if let Err(error) = ui::style::load() {
+        error!(error = ?error, "Failed to load styles");
+    }
 
     // We need to create a window here for some reason.
     let w = Window::new();

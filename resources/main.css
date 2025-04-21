@@ -1,4 +1,29 @@
 window {
-  border-radius: 7px;
-  padding: 5px 10px;
+  padding: 10px;
+  border-radius: 8px;
+
+  /* tailwindcss' `shadow` */
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+  background-color: rgba(60, 60, 60, 0.8);
+}
+
+.header {
+  color: rgb(200, 200, 200);
+  margin-bottom: 5px;
+}
+
+.app-name {
+  text-transform: uppercase;
+}
+
+.summary,
+.body {
+  color: rgb(220, 220, 220);
+}
+
+.summary {
+  font-weight: bold;
 }

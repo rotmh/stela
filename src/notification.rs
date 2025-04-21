@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
+use chrono::Utc;
 use futures::TryStreamExt;
 use serde::Deserialize;
+use tracing::{debug, error, info};
 use zbus::{Connection, MatchRule, MessageStream, fdo, zvariant};
 
 #[derive(Debug, Deserialize, zvariant::Type)]
-pub struct Notification<'a> {
+#[allow(dead_code)]
+struct Notification<'a> {
     app_name: &'a str,
     replaces_id: u32,
     app_icon: &'a str,
@@ -16,7 +19,41 @@ pub struct Notification<'a> {
     expire_timeout: i32,
 }
 
-pub async fn listen(tx: async_channel::Sender<String>) -> zbus::Result<()> {
+impl<'a> From<Notification<'a>> for crate::Notification {
+    fn from(value: Notification) -> Self {
+        Self {
+            app_name: value.app_name.to_owned(),
+            summary: value.summary.to_owned(),
+            body: value.body.to_owned(),
+            created_at: Utc::now().naive_utc(),
+        }
+    }
+}
+
+pub async fn listen(
+    tx: tokio::sync::broadcast::Sender<crate::Notification>,
+) -> zbus::Result<()> {
+    let mut stream = stream().await?;
+
+    while let Some(msg) = stream.try_next().await? {
+        match msg.body().deserialize::<Notification>() {
+            Ok(notification) => {
+                debug!(?notification, "Received notification");
+
+                if let Err(error) = tx.send(notification.into()) {
+                    error!(%error, "Failed to broadcast notification");
+                }
+            }
+            Err(error) => {
+                error!(%error, "Failed to deserialize notification");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn stream() -> zbus::Result<MessageStream> {
     let connection = Connection::session().await?;
     let proxy = fdo::MonitoringProxy::builder(&connection)
         .destination("org.freedesktop.DBus")?
@@ -32,16 +69,7 @@ pub async fn listen(tx: async_channel::Sender<String>) -> zbus::Result<()> {
         .build();
     proxy.become_monitor(&[rule], 0).await?;
 
-    let mut stream = MessageStream::from(&connection);
+    info!("Created a message stream for notifications");
 
-    while let Some(msg) = stream.try_next().await? {
-        match msg.body().deserialize::<Notification>() {
-            Ok(notification) => {
-                tx.send(notification.summary.to_owned()).await.unwrap()
-            }
-            Err(error) => {}
-        }
-    }
-
-    Ok(())
+    Ok(MessageStream::from(&connection))
 }
