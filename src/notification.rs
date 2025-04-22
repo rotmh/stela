@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use chrono::Utc;
 use futures::TryStreamExt;
 use serde::Deserialize;
-use tracing::{debug, error, info};
+use tokio::sync::broadcast;
+use tracing::{debug, error, info, trace};
 use url::Url;
 use zbus::{Connection, MatchRule, MessageStream, fdo, zvariant};
 
@@ -22,39 +23,59 @@ struct Notification<'a> {
 
 impl<'a> From<Notification<'a>> for crate::Notification {
     fn from(value: Notification) -> Self {
+        let app_icon = Url::parse(value.app_icon)
+            .ok()
+            .map(|_url| value.app_icon.to_owned());
+        debug!(?app_icon, %value.app_icon);
         Self {
             app_name: value.app_name.to_owned(),
             summary: value.summary.to_owned(),
             body: value.body.to_owned(),
-            app_icon: Url::parse(value.app_icon)
-                .ok()
-                .map(|_url| value.app_icon.to_owned()),
+            app_icon,
             created_at: Utc::now().naive_utc(),
         }
     }
 }
 
+#[tracing::instrument]
 pub async fn listen(
-    tx: tokio::sync::broadcast::Sender<crate::Notification>,
+    tx: broadcast::Sender<crate::Notification>,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
 ) -> zbus::Result<()> {
     let mut stream = stream().await?;
 
-    while let Some(msg) = stream.try_next().await? {
-        match msg.body().deserialize::<Notification>() {
-            Ok(notification) => {
-                debug!(?notification, "Received notification");
-
-                if let Err(error) = tx.send(notification.into()) {
-                    error!(%error, "Failed to broadcast notification");
-                }
+    loop {
+        tokio::select! {
+            _ = shutdown.changed() => {
+                info!("Shutdown signal received, exiting task...");
+                return Ok(());
             }
-            Err(error) => {
-                error!(%error, "Failed to deserialize notification");
+            msg = stream.try_next() => match msg? {
+                Some(msg) => handle_message(msg, &tx),
+                None => break,
             }
         }
     }
 
     Ok(())
+}
+
+fn handle_message(
+    msg: zbus::Message,
+    tx: &broadcast::Sender<crate::Notification>,
+) {
+    match msg.body().deserialize::<Notification>() {
+        Ok(notification) => {
+            trace!(?notification, "Received notification");
+
+            if let Err(error) = tx.send(notification.into()) {
+                error!(%error, "Failed to broadcast notification");
+            }
+        }
+        Err(error) => {
+            error!(%error, "Failed to deserialize notification");
+        }
+    }
 }
 
 async fn stream() -> zbus::Result<MessageStream> {
