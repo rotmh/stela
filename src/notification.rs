@@ -4,6 +4,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use serde::Deserialize;
 use tracing::{debug, error, info};
+use url::Url;
 use zbus::{Connection, MatchRule, MessageStream, fdo, zvariant};
 
 #[derive(Debug, Deserialize, zvariant::Type)]
@@ -25,6 +26,9 @@ impl<'a> From<Notification<'a>> for crate::Notification {
             app_name: value.app_name.to_owned(),
             summary: value.summary.to_owned(),
             body: value.body.to_owned(),
+            app_icon: Url::parse(value.app_icon)
+                .ok()
+                .map(|_url| value.app_icon.to_owned()),
             created_at: Utc::now().naive_utc(),
         }
     }

@@ -1,29 +1,41 @@
 window {
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
 
-  /* tailwindcss' `shadow` */
   box-shadow:
     0 1px 3px 0 rgb(0 0 0 / 0.1),
     0 1px 2px -1px rgb(0 0 0 / 0.1);
 
-  background-color: rgba(60, 60, 60, 0.8);
+  background-color: #181815aa;
+  border: solid 1px #78787555;
 }
 
 .header {
-  color: rgb(200, 200, 200);
-  margin-bottom: 5px;
+  color: #dad6cf;
+  margin-bottom: 7px;
 }
 
 .app-name {
+  font-weight: lighter;
   text-transform: uppercase;
+}
+
+.time {
+  font-size: 0.9em;
 }
 
 .summary,
 .body {
-  color: rgb(220, 220, 220);
+  color: #dad6cf;
 }
 
 .summary {
+  margin-bottom: 5px;
   font-weight: bold;
+  font-size: 1em;
+}
+
+.body {
+  line-height: 1.5em;
+  font-size: 1em;
 }

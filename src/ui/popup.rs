@@ -1,17 +1,18 @@
 use std::{cell::RefCell, rc::Rc};
 
+use chrono::NaiveDateTime;
 use gtk4::{
-    self as gtk, Align, Application, ApplicationWindow, GestureClick, Label,
-    Orientation, prelude::*,
+    self as gtk, Align, Application, ApplicationWindow, GestureClick, Image,
+    Label, Orientation, prelude::*,
 };
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 
 /// The gap between the notification popups.
 const GAP: i32 = 10;
 /// The margins between the popups stack and the screen's edges.
-const MARGIN: i32 = 20;
+const MARGIN: i32 = 10;
 /// The popup's width.
-const WIDTH: i32 = 400;
+const WIDTH: i32 = 350;
 
 pub struct Manager {
     application: Application,
@@ -44,30 +45,12 @@ impl Manager {
         // |                                  |         |
         // *--------------------------------------------*
 
-        let app_name = Label::builder()
-            .css_classes(["app-name"])
-            .hexpand(true)
-            .halign(Align::Start)
-            .build();
-        app_name.set_text(&notification.app_name);
-
-        let time = Label::builder().halign(Align::End).build();
-        time.set_text(&notification.created_at.format("%H:%M").to_string());
-
-        let header = gtk::Box::builder()
-            .css_classes(["header"])
-            .halign(Align::Fill)
-            .orientation(Orientation::Horizontal)
-            .build();
-        header.set_spacing(5);
-        header.append(&app_name);
-        header.append(&time);
-
-        let summary = Label::builder()
-            .css_classes(["summary"])
-            .halign(Align::Start)
-            .build();
-        summary.set_text(&notification.summary);
+        let header = Self::header();
+        if let Some(uri) = notification.app_icon {
+            header.append(&Self::icon(&uri));
+        }
+        header.append(&Self::app_name(&notification.app_name));
+        header.append(&Self::time(notification.created_at));
 
         let container =
             gtk::Box::builder().orientation(Orientation::Vertical).build();
@@ -110,9 +93,49 @@ impl Manager {
         window
     }
 
+    fn header() -> gtk::Box {
+        let header = gtk::Box::builder()
+            .css_classes(["header"])
+            .halign(Align::Fill)
+            .orientation(Orientation::Horizontal)
+            .build();
+        header.set_spacing(5);
+        header
+    }
+
+    fn time(dt: NaiveDateTime) -> Label {
+        let time =
+            Label::builder().css_classes(["time"]).halign(Align::End).build();
+        let local_time = dt.and_utc().with_timezone(&chrono::Local);
+        time.set_text(&local_time.format("%H:%M").to_string());
+        time
+    }
+
+    fn app_name(text: &str) -> Label {
+        let app_name = Label::builder()
+            .css_classes(["app-name"])
+            .hexpand(true)
+            .halign(Align::Start)
+            .build();
+        app_name.set_text(text);
+        app_name
+    }
+
+    fn icon(uri: &str) -> Image {
+        Image::builder()
+            .css_classes(["app_icon"])
+            .halign(Align::Start)
+            .file(uri)
+            .build()
+    }
+
     fn body(text: &str) -> Label {
-        let body =
-            Label::builder().css_classes(["body"]).halign(Align::Start).build();
+        let body = Label::builder()
+            .css_classes(["body"])
+            .max_width_chars(50)
+            .wrap(true)
+            .halign(Align::Start)
+            .build();
         body.set_text(text);
         body
     }
@@ -120,6 +143,7 @@ impl Manager {
     fn summary(text: &str) -> Label {
         let summary = Label::builder()
             .css_classes(["summary"])
+            .wrap(true)
             .halign(Align::Start)
             .build();
         summary.set_text(text);

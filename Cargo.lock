@@ -2000,6 +2000,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "dotenvy",
  "futures",
  "gtk4",
  "gtk4-layer-shell",
@@ -2008,6 +2009,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "zbus",
 ]
 
