@@ -20,6 +20,7 @@
           glib
           gtk4
           gtk4-layer-shell
+          gdk-pixbuf
         ];
       in {
         devShells.default = pkgs.mkShell {

@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.42", features = ["macros", "rt-multi-thread", "signal"] }
-zbus = { version = "5.5", default-features = false, features = ["tokio"] }
+zbus = { version = "5.5", default-features = false, features = ["tokio", "option-as-array"] }
 serde = { version = "1.0", features = ["derive"] }
 
 futures = "0.3"
@@ -16,11 +16,9 @@ gtk4 = "0.9"
 gtk4-layer-shell = "0.5"
 
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 sqlx = { version = "0.8", features = ["sqlite", "chrono", "runtime-tokio"] }
 chrono = "0.4"
 
 dotenvy = "0.15"
-
-url = "2.5"

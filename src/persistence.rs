@@ -1,8 +1,18 @@
+use chrono::NaiveDateTime;
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use tokio::sync::broadcast;
 use tracing::info;
 
-use crate::{Notification, config::Config};
+use crate::config::Config;
+
+#[derive(Debug, Clone)]
+pub struct Notification {
+    pub app_name: String,
+    pub summary: String,
+    pub body: String,
+    /// In UTC.
+    pub created_at: NaiveDateTime,
+}
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -16,10 +26,10 @@ impl Persistence {
     }
 
     /// Receives notifications from `rx` and persist them in the database.
-    #[tracing::instrument]
+    #[tracing::instrument(skip_all)]
     pub async fn persist(
         mut self,
-        mut rx: broadcast::Receiver<Notification>,
+        mut rx: broadcast::Receiver<crate::notification::Notification>,
         mut shutdown: tokio::sync::watch::Receiver<bool>,
     ) -> sqlx::Result<()> {
         loop {
@@ -40,17 +50,15 @@ impl Persistence {
 
     async fn insert_notification(
         &mut self,
-        notification: Notification,
+        notification: crate::notification::Notification,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             "INSERT INTO notifications
-                    (summary, body, app_name, app_icon, created_at)
-             VALUES (?, ?, ?, ?, ?)",
+                    (summary, body, app_name)
+             VALUES (?, ?, ?)",
             notification.app_name,
             notification.summary,
             notification.body,
-            notification.app_icon,
-            notification.created_at,
         )
         .execute(&self.db)
         .await

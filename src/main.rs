@@ -1,10 +1,13 @@
 use anyhow::{Context, anyhow};
 use gtk4::{Application, Window, glib, prelude::*};
 use tokio::sync::broadcast;
-use tracing::{Level, error, info};
+use tracing::{error, info};
 
 use stela::{
-    Notification, config::Config, notification, persistence::Persistence, ui,
+    config::Config,
+    notification::{self, Notification},
+    persistence::Persistence,
+    ui,
 };
 
 const APP_ID: &str = "dev.rotmh.stela";
@@ -12,7 +15,10 @@ const APP_ID: &str = "dev.rotmh.stela";
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().context("Failed to load .env file")?;
-    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
+    tracing_subscriber::fmt()
+        .with_line_number(true)
+        .with_env_filter("stela=debug")
+        .init();
 
     let (tx, _rx) = broadcast::channel(10);
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
@@ -88,7 +94,7 @@ fn startup(app: Application, mut rx: broadcast::Receiver<Notification>) {
     });
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip_all)]
 fn shutdown_handler(
     app: Application,
     mut shutdown: tokio::sync::watch::Receiver<bool>,

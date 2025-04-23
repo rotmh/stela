@@ -1,9 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Local};
 use gtk4::{
-    self as gtk, Align, Application, ApplicationWindow, GestureClick, Image,
-    Label, Orientation, prelude::*,
+    self as gtk, Align, Application, ApplicationWindow, Frame, GestureClick,
+    Image, Label, Orientation,
+    gdk_pixbuf::{Colorspace, Pixbuf},
+    glib::Bytes,
+    prelude::*,
 };
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 
@@ -13,6 +16,8 @@ const GAP: i32 = 10;
 const MARGIN: i32 = 10;
 /// The popup's width.
 const WIDTH: i32 = 350;
+
+const IMAGE_SIZE: i32 = 48;
 
 pub struct Manager {
     application: Application,
@@ -24,7 +29,7 @@ impl Manager {
         Self { application, windows: Windows::new() }
     }
 
-    pub fn push(&mut self, notification: crate::Notification) {
+    pub fn push(&mut self, notification: crate::notification::Notification) {
         let window = self.create_popup_window(notification);
         self.windows.push(window.clone());
         window.present();
@@ -33,25 +38,37 @@ impl Manager {
 
     fn create_popup_window(
         &self,
-        notification: crate::Notification,
+        notification: crate::notification::Notification,
     ) -> ApplicationWindow {
         // *--------------------------------------------*
         // | ICON | APP_NAME |      <space>      | TIME |
         // |--------------------------------------------*
         // |            SUMMARY           |   <space>   |
         // *--------------------------------------------*
-        // |                                  |         |
-        // |                BODY              | <space> |
-        // |                                  |         |
+        // |                               |            |
+        // |              BODY             |   IMAGE?   |
+        // |                               |            |
         // *--------------------------------------------*
 
+        // Contains the app name, icon, and the time.
         let header = Self::header();
-        if let Some(uri) = notification.app_icon {
-            header.append(&Self::icon(&uri));
+        if !notification.app_icon.is_empty() {
+            header.append(&Self::icon(&notification.app_icon));
         }
         header.append(&Self::app_name(&notification.app_name));
-        header.append(&Self::time(notification.created_at));
+        header.append(&Self::time(Local::now()));
 
+        // Contains the body and image.
+        let content =
+            gtk::Box::builder().orientation(Orientation::Horizontal).build();
+        if !notification.body.is_empty() {
+            content.append(&Self::body(&notification.body));
+        }
+        if let Some(image_data) = notification.hints.image_data {
+            content.append(&Self::image(image_data));
+        }
+
+        // Contains the every thing in the popup.
         let container =
             gtk::Box::builder().orientation(Orientation::Vertical).build();
 
@@ -60,8 +77,9 @@ impl Manager {
         if !notification.summary.is_empty() {
             container.append(&Self::summary(&notification.summary));
         }
-        if !notification.body.is_empty() {
-            container.append(&Self::body(&notification.body));
+        // Check whether `content` is empty.
+        if content.first_child().is_some() {
+            container.append(&content);
         }
 
         let window = ApplicationWindow::builder()
@@ -93,6 +111,26 @@ impl Manager {
         window
     }
 
+    fn image(image_data: crate::notification::ImageData) -> Frame {
+        let pixbuf = Pixbuf::from_bytes(
+            &Bytes::from_owned(image_data.data),
+            Colorspace::Rgb,
+            image_data.has_alpha,
+            image_data.bits_per_sample,
+            image_data.width,
+            image_data.height,
+            image_data.rowstride,
+        );
+        let image = Image::from_pixbuf(Some(&pixbuf));
+        image.set_halign(Align::End);
+        image.add_css_class("image");
+        dbg!(image.icon_size(), image.pixel_size(), pixbuf.height());
+
+        image.set_size_request(IMAGE_SIZE, IMAGE_SIZE);
+
+        Frame::builder().css_classes(["image-frame"]).child(&image).build()
+    }
+
     fn header() -> gtk::Box {
         let header = gtk::Box::builder()
             .css_classes(["header"])
@@ -103,11 +141,10 @@ impl Manager {
         header
     }
 
-    fn time(dt: NaiveDateTime) -> Label {
+    fn time(dt: DateTime<Local>) -> Label {
         let time =
             Label::builder().css_classes(["time"]).halign(Align::End).build();
-        let local_time = dt.and_utc().with_timezone(&chrono::Local);
-        time.set_text(&local_time.format("%H:%M").to_string());
+        time.set_text(&dt.format("%H:%M").to_string());
         time
     }
 
@@ -135,6 +172,7 @@ impl Manager {
             .max_width_chars(50)
             .wrap(true)
             .halign(Align::Start)
+            .hexpand(true)
             .build();
         body.set_text(text);
         body

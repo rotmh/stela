@@ -32,10 +32,16 @@ window {
 .summary {
   margin-bottom: 5px;
   font-weight: bold;
-  font-size: 1em;
 }
 
 .body {
   line-height: 1.5em;
-  font-size: 1em;
+}
+
+.image-frame {
+  border: none;
+  border-radius: 10px;
+}
+
+.image {
 }
