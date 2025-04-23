@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO notifications\n                    (summary, body, app_name)\n             VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "f5e730438ea827446c3b2378633e1c26e75d17f9ce3892d4f62dd5414f0099d6"
+}
